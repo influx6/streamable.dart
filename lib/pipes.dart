@@ -98,6 +98,10 @@ class Streamable<T> extends Streamer<T>{
     (this.paused ? this.resume() : this.push());
   }
 
+  void disconnect(){
+    this._handler = this._backhandler = null;
+  }
+
   void push(){
     if(this.paused || !this.isConnected) return;
     while(!this._streams.isEmpty)
@@ -272,6 +276,10 @@ class BufferedStream<T> extends Streamer<T>{
 
   void listen(Function n){
     this.stream.listen(n);
+  }
+  
+  void disconnect(){
+    this.stream.disconnect();
   }
 
   void end(){
