@@ -12,6 +12,10 @@ A simple,decent custom stream implementation,not to rival the inbuilt dart strea
 	buffer.add(3);
 	buffer.add(2);
 	
+	//non-cap stream
+	Streamable stream = Streamable.create();
+	stream.add(2);
+	
 #####Candy 2: BroadcastListener (Equivalent to the StreamConsumer)
 	The broadcastlistener is equivalent to the streamConsumer but with a major difference which is that it can buffer incomming stream
 	even if it has been paused,which allows a higher level stream to continue propagating stream items to it without worries of 
