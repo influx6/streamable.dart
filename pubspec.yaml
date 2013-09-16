@@ -3,9 +3,7 @@ version: 0.0.1
 author: Alexander Adeniyin Ewetumo <trinoxf@gmail.com>
 repository: http://github.com/influx/stream.dart
 homepage: http://influx.github.com/stream.dart
-description: a library of helpful stream candies
+description: a library of helpful custom stream candies
 dependencies:
-  hub:
-    path: ../hub
-  ds:
-    path: ../ds
+  hub: any
+  ds: any
