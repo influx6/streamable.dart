@@ -4,8 +4,11 @@ A simple,decent custom stream implementation,not to rival the inbuilt dart strea
 
 ###Candies:
 
-#####Candy 1: CappedStream
-	Has a maximum set amount of items allowed in the stream,if it passes the total set size,it flushes all items away
+#####Candy 1: Streamable and CappedStream
+	Streamable is the standard streaming handler,you simple create one and send off your items,also a stream waits till it gets
+	a function through its listen function,once it gets that,then it begins to propagate,it can be paused,resume, also allows
+	attaching a function to it,to get notify everytime it drains all item in the stream using the ondrain function.
+	CappedStream Has a maximum set amount of items allowed in the stream,if it passes the total set size,it flushes all items away.
 	
 	CappedStreamable<int> buffer = new CappedStreamable<int>(200);
 	buffer.add(1);
@@ -16,10 +19,13 @@ A simple,decent custom stream implementation,not to rival the inbuilt dart strea
 	Streamable stream = Streamable.create();
 	stream.add(2);
 	
+	stream.listen((n){ print('getting $n'); });
+	stream.onDrain((){ print('drained last items'); });
+	
 #####Candy 2: BroadcastListener (Equivalent to the StreamConsumer)
 	The broadcastlistener is equivalent to the streamConsumer but with a major difference which is that it can buffer incomming stream
 	even if it has been paused,which allows a higher level stream to continue propagating stream items to it without worries of 
-	having to flush or drain because the broadcaster can simple decided to pause the notification to perform a task and then
+	having to flush or drain because the broadcastlistener can simple decided to pause the notification to perform a task and then
 	continue with operation without missing any items. Also allows individual listeners to unsubscribe from stream.
 	
     BroadcastListener<int> sub = new BroadcastListener<int>(casts);
@@ -70,7 +76,7 @@ A simple,decent custom stream implementation,not to rival the inbuilt dart strea
 	
 	
 #####Candy 5: Pipes
-	To reduce the total setup required as to combining the stream, the boradcasters and listeners, the Pipe encapsulates all that
+	To reduce the total setup required as to combining the stream, the broadcasters and listeners, the Pipe encapsulates all that
 	steps by simple letting a single Object connect to the stream,create a broadcaster and produce listeners when needed effortlessly.
 	
     var pipe = Pipes.create('#1');

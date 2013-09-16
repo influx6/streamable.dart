@@ -1,8 +1,7 @@
 name: pipes
-version: 0.0.2
+version: 0.0.4
 author: Alexander Adeniyin Ewetumo <trinoxf@gmail.com>
-repository: http://github.com/influx/stream.dart
-homepage: http://influx.github.com/stream.dart
+homepage: http://influx.github.com/pipes.dart
 description: a library of helpful custom stream candies
 dependencies:
   hub: any
