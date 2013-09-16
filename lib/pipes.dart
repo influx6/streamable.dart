@@ -52,6 +52,7 @@ class Streamable<T> extends Streamer<T>{
   final Completer _done = new Completer();
   bool _shouldShutDown = false;
   Function _handler;
+  Function _drain;
   Function _backhandler;
   
   static create() => new Streamable();
@@ -68,7 +69,7 @@ class Streamable<T> extends Streamer<T>{
     this.end();
     this.done.then((n){
       this._streams.free();
-      this._handler = this._backhandler = null;
+      this._handler = this._backhandler = this._drain = null;
     });
   }
   
@@ -86,7 +87,7 @@ class Streamable<T> extends Streamer<T>{
     this._backhandler = null;
     this.push();
   }
-
+  
   void end(){
     if(this.closed) return;
     (this.paused ? this.resume() : this.push());
@@ -97,7 +98,11 @@ class Streamable<T> extends Streamer<T>{
     (!this.paused ? this._handler = n : this._backhandler = n);
     (this.paused ? this.resume() : this.push());
   }
-
+  
+  void onDrain(void n()){
+	  this._drain = n;
+  }
+  
   void disconnect(){
     this._handler = this._backhandler = null;
   }
@@ -110,6 +115,7 @@ class Streamable<T> extends Streamer<T>{
       this._done.complete();
       this._done.future.then((){ this.close(); });
     }
+	if(this._drain != null) this._drain();
   }
   
   bool isOverSize(int max){
@@ -234,12 +240,17 @@ class BroadcastListener<T> extends Listener<T>{
 
 class BufferedStream<T> extends Streamer<T>{
   final Streamable stream = new Streamable<T>();
-  Streamable _buffer;
+  final Streamable _buffer = new Streamable<T>();
   bool _draining = false;
   
   static create() => new BufferedStream();
 
-  BufferedStream();
+  BufferedStream(){
+      this._buffer.pause();
+	  this._buffer.onDrain((){
+		  this._buffer.pause();
+	  });
+  }
 
   void resume(){
     this.stream.resume();
@@ -257,13 +268,11 @@ class BufferedStream<T> extends Streamer<T>{
   void buffer(){
     this._draining = true;
     this.stream.pause();
-    this._initBuffer();
   }
 
   void endBuffer(){
     this.drain();
     this._draining = false;
-    this._destroyBuffer();
     this.stream.resume();
   }
 
@@ -284,16 +293,6 @@ class BufferedStream<T> extends Streamer<T>{
 
   void end(){
     this.stream.end();
-  }
-  
-  void _destroyBuffer(){
-    this._buffer.close();
-    this._buffer = null;
-  }
-
-  void _initBuffer(){
-    this._buffer = new Streamable<T>();
-    this._buffer.pause();
   }
 
   void close(){
