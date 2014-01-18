@@ -5,7 +5,7 @@ import 'package:streamable/streamable.dart';
 
 main(){
   
-  Streamable buffer = new Streamable();
+ Streamable buffer = new Streamable();
   
  buffer.transformer.on((n){
    return "$n little sheep";
