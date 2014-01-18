@@ -35,7 +35,7 @@ A simple,decent custom stream implementation,not to rival the inbuilt dart strea
 
 
 #####Candy 2: Subscriber
-    Subscriber is a simple as its sounds,its a hook into the stream that is passed to it which allows the pausing and resuming of its own unique stream without effecting the root stream its connected to,and allows the closing and ending of the subscription to the root stream
+    Subscriber is as simple as its sounds,its a hook into the stream that is passed to it which allows the pausing and resuming of its own unique stream without effecting the root stream its connected to,and allows the closing and ending of the subscription to the root stream
     
     var sub = Subscriber.create(buffer);
     sub.on((g){ print('subscribers item: $g'); });
