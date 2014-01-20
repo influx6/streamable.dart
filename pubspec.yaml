@@ -6,5 +6,5 @@ homepage: http://influx.github.com/streamable.dart
 dependencies:
   ds: any
   hub: any
-  invocable: any
   statemanager: any
+  invocable: any
