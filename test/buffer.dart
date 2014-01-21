@@ -22,5 +22,5 @@ main(){
   buffer.emit(6);
   buffer.emit(4);
 
-
+  
 }

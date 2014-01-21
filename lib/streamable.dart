@@ -135,17 +135,25 @@ class Streamable<T> extends Streamer<T>{
   final Distributor closed = Distributor.create('streamable-close');
   final Distributor listeners = Distributor.create('streamable-listeners');
   dynamic iterator;
-  StateManager state,pushState;
-  int max;
+  StateManager state,pushState,flush;
   
   static create([n]) => new Streamable(n);
 
   Streamable([int m]){
-    this.max = m;
+    if(m != null) this.streams.setMax(m);
     this.state = StateManager.create(this);
     this.pushState = StateManager.create(this);
+    this.flush = StateManager.create(this);
     this.iterator = this.streams.iterator;
+  
+    this.flush.add('yes', {
+      'allowed': (t,c){ return true; }
+    });
 
+    this.flush.add('no', {
+      'allowed': (t,c){ return false; }
+    });
+    
     this.pushState.add('strict', {
       'strict': (target,control){ return true; },
       'delayed': (target,control){ return false; },
@@ -197,11 +205,13 @@ class Streamable<T> extends Streamer<T>{
     }); 
     
     this.transformer.whenDone((n){
+      
       this.streams.add(n);
       this.push();
     });
     
     this.state.switchState('resumed');
+    this.flush.switchState('no');
     this.pushState.switchState("strict");
     
   }
@@ -211,10 +221,21 @@ class Streamable<T> extends Streamer<T>{
     clone.updateTransformerListFrom(this.transformer);
     return clone;
   }
-
+  
+  void setMax(int m){
+    this.streams.setMax(m);  
+  }
+  
   void emit(T e){    
-    if(e == null) return;
-    if(this.isFull || this.streamClosed) return;
+    if(e == null) return null;
+    
+    if(this.streamClosed) return null;  
+    
+    if(this.isFull){
+      if(this.flush.allowed()) this.streams.clear();
+      else return null;
+    }
+    
     this.initd.emit(e);
     this.transformer.emit(e);
   }
@@ -351,8 +372,15 @@ class Streamable<T> extends Streamer<T>{
   }
   
   bool get isFull{
-    if(this.max == null) return false;
-    return this.streams.size >= this.max;
+    return this.streams.isDense();
+  }
+  
+  void enableFlushing(){
+    this.flush.switchState('yes');      
+  }
+  
+  void disableFlushing(){
+    this.flush.switchState('no');  
   }
   
   bool get pushDelayedEnabled{
@@ -410,6 +438,18 @@ class Subscriber<T> extends Listener<T>{
 
   Mutator get transformer => this.stream.transformer;
 
+  void setMax(int m){
+    this.stream.setMax(m);  
+  }
+
+  void enableFlushing(){
+    this.stream.enableFlushing(); 
+  }
+  
+  void disableFlushing(){
+    this.stream.disableFlushing();
+  }
+  
   void whenDrained(Function n){
     this.stream.whenDrained(n);
   }

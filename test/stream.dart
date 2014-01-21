@@ -11,10 +11,13 @@ main(){
    return "$n little sheep";
  });
   
+ buffer.setMax(4);
 
- buffer.whenInitd((n){
-   print('emiting $n');
- });
+ buffer.enableFlushing();
+
+// buffer.whenInitd((n){
+//   print('emiting $n');
+// });
   
   buffer.emit(1);
   buffer.emit(3);
@@ -22,11 +25,13 @@ main(){
   
   buffer.emit(5);
   buffer.emitMass([6,7]);
-  
+
+
   buffer.on((n){
     print("buffering: ${n}");
   });
-
+  
+  
   var sub = Subscriber.create(buffer);
   sub.on((g){ print('subscribers item: $g'); });
   
@@ -49,7 +54,6 @@ main(){
   
   buffer.emit(11);
   buffer.emit(12);
-  
   
 
 }
