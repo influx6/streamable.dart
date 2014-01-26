@@ -2,8 +2,6 @@
 
 import 'package:ds/ds.dart' as ds;
 import 'package:hub/hub.dart';
-import 'package:invocable/invocable.dart';
-import 'package:statemanager/statemanager.dart';
 
 abstract class Streamer<T>{
   void emit(T e);
@@ -24,9 +22,10 @@ abstract class Broadcast<T>{
   void add(T n) => this.propagate(n);
 }
 
-class Listener<T> extends ExtendableInvocable{
+class Listener<T>{
+  final info = Hub.createMapDecorator();
 
-  Listener(): super();
+  Listener();
 
   void emit(T a){}
   void pause(){}
@@ -133,6 +132,8 @@ class Streamable<T> extends Streamer<T>{
   final Distributor initd = Distributor.create('streamable-emitInitiation');
   final Distributor drained = Distributor.create('streamable-drainer');
   final Distributor closed = Distributor.create('streamable-close');
+  final Distributor resumer = Distributor.create('streamable-resume');
+  final Distributor pauser = Distributor.create('streamable-pause');
   final Distributor listeners = Distributor.create('streamable-listeners');
   dynamic iterator;
   StateManager state,pushState,flush;
@@ -232,7 +233,7 @@ class Streamable<T> extends Streamer<T>{
     if(this.streamClosed) return null;  
     
     if(this.isFull){
-      if(this.flush.allowed()) this.streams.clear();
+      if(this.flush.run('allowed')) this.streams.clear();
       else return null;
     }
     
@@ -320,12 +321,14 @@ class Streamable<T> extends Streamer<T>{
   
   void pause(){
     if(this.streamClosed) return;
-    this.state.switchState('paused');  
+    this.state.switchState('paused');
+    this.pauser.emit(this);
   }
   
   void resume(){
     if(this.streamClosed) return;
     this.state.switchState('resumed');
+    this.resumer.emit(this);
     this.push();
   }
  
@@ -384,7 +387,7 @@ class Streamable<T> extends Streamer<T>{
   }
   
   bool get pushDelayedEnabled{
-    return this.pushState.delayed();  
+    return this.pushState.run('delayed');  
   }
   
   bool get isEmpty{
@@ -392,23 +395,23 @@ class Streamable<T> extends Streamer<T>{
   }
   
   bool get streamClosed{
-    return this.state.closed();  
+    return this.state.run('closed');  
   }
 
   bool get streamClosing{
-    return this.state.closing();  
+    return this.state.run('closing');  
   }
   
   bool get streamPaused{
-    return this.state.paused();
+    return this.state.run('paused');
   }
   
   bool get streamResumed{
-    return this.state.resumed();
+    return this.state.run('resumed');
   }  
 
   bool get streamFiring{
-    return this.state.firing();
+    return this.state.run('firing');
   }
   
   bool get hasListeners{
@@ -492,7 +495,7 @@ class Subscriber<T> extends Listener<T>{
   }
   
   void closeAttributes(){
-    super.close();  
+    //does nothing - removed dynamic properties of invocable for dart2js compatibility
   }
   
   void close([bool n]){
