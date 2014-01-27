@@ -18,7 +18,7 @@ main(){
 // buffer.whenInitd((n){
 //   print('emiting $n');
 // });
-  
+ 
   buffer.emit(1);
   buffer.emit(3);
   buffer.emit(2);
@@ -39,7 +39,10 @@ main(){
 
   buffer.emit(4);
 
-
+  buffer.whenClosed((n){
+    print('closed!');
+  });
+  
   buffer.resume();
   
   //buffer.enablePushDelayed();
@@ -55,5 +58,8 @@ main(){
   buffer.emit(11);
   buffer.emit(12);
   
+
+
+  buffer.close();
 
 }

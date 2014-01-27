@@ -7,6 +7,10 @@ main(){
   Streamable buffer = Streamable.create();
   Streamable stream = Streamable.create();  
   
+  buffer.whenClosed((n){
+    print('closed!');
+  });
+  
   var mixedOrder = (MixedStreams.combineOrder([buffer,stream])(null,null,(values,mixed,streams,injector){
       mixed.emitMass(values);
   }));
@@ -15,7 +19,7 @@ main(){
     if(tg.length >= 2) return true;
     return false;
   }));
-    
+  
   buffer.emit(1);
   stream.emit(4);
   buffer.emit(3);
@@ -32,4 +36,7 @@ main(){
   });
   
   mixed.resume();
+
+  buffer.close();
+  
 }
