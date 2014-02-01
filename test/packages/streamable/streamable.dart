@@ -362,7 +362,7 @@ class Streamable<T> extends Streamer<T>{
     this.initd.free();
     this.drained.free();
   }
-  
+    
   void reset(){
     if(!this.streamClosed) return;  
     this.closeListeners();
@@ -540,8 +540,8 @@ class GroupedStream{
   static create() => new GroupedStream();
   
   GroupedStream(){
-    this.state = hub.StateManager.create(this);
-    this.delimited = hub.StateManager.create(this);
+    this.state = StateManager.create(this);
+    this.delimited = StateManager.create(this);
     
     this.delimited.add('yes', {
       'allowed': (r,c){ return true; }
@@ -693,7 +693,7 @@ class GroupedStream{
 class MixedStreams{
   
   static Function mixed(List<Streamable> sets){
-    return (Injector<T> injectible){
+    return (Injector injectible){
       return (fn,[fns]){
         var mixed = Streamable.create();
         var injector  = injectible;

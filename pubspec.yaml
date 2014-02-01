@@ -1,8 +1,8 @@
 name: streamable
-version: 0.1.2
 author: Alexander Adeniyin Ewetumo <trinoxf@gmail.com>
-description: a library of helpful custom stream candies
+version: 0.1.3
 homepage: http://influx.github.com/streamable.dart
+description: a library of helpful custom stream candies
 dependencies:
   ds: any
   hub: any
