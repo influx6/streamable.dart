@@ -1,4 +1,4 @@
- library streamable;
+library streamable;
 
 import 'package:ds/ds.dart' as ds;
 import 'package:hub/hub.dart';
@@ -8,11 +8,9 @@ abstract class Streamer<T>{
   void push();
   void resume();
   void pause();
-  void listen(Function n);
   void end();
   void close();
-  void pipe(Streamer<T> s);
-  void transform(Streamer<T> s);
+
 }
 
 abstract class Broadcast<T>{
@@ -131,12 +129,13 @@ class Streamable<T> extends Streamer<T>{
   final Mutator transformer = Hub.createMutator('streamble-transformer');
   final Distributor initd = Distributor.create('streamable-emitInitiation');
   final Distributor drained = Distributor.create('streamable-drainer');
+  final Distributor ended = Distributor.create('streamable-close');
   final Distributor closed = Distributor.create('streamable-close');
-  final Distributor beginSegment = Distributor.create('streamable-section');
-  final Distributor endSegment = Distributor.create('streamable-section');
   final Distributor resumer = Distributor.create('streamable-resume');
   final Distributor pauser = Distributor.create('streamable-pause');
   final Distributor listeners = Distributor.create('streamable-listeners');
+  final Distributor listenersAdded = Distributor.create('streamable-listenersAdd');
+  final Distributor listenersRemoved = Distributor.create('streamable-listenersRemoved');
   StateManager state,pushState,flush;
   dynamic iterator;
   Function _ender;
@@ -221,11 +220,10 @@ class Streamable<T> extends Streamer<T>{
     this._ender = (){
       this.state.switchState('closed');
       this.drained.emit(true);
-      this.closed.emit(true);
-      this.closed.free();
       this.drained.lock();
-      this.closed.lock();
-//      this.reset();
+      this.listenersAdded.lock();
+      this.listenersRemoved.lock();
+//      this.ended.lock();
     };
     
   }
@@ -243,7 +241,7 @@ class Streamable<T> extends Streamer<T>{
   void emit(T e){    
     if(e == null) return null;
     
-    if(this.streamClosed) return null;  
+    if(this.streamClosed || this.streamClosing) return null;  
     
     if(this.isFull){
       if(this.flush.run('allowed')) this.streams.clear();
@@ -260,33 +258,37 @@ class Streamable<T> extends Streamer<T>{
     });  
   }
   
-  void segmentBegin(){
-    this.beginSegment.emit(true);
-    return null;
+  void whenAddingListener(Function n){
+    this.listenersAdded.on(n);
   }
-  
-  void segmentEnd(){
-    this.endSegment.emit(true);
-    return null;
+
+  void whenRemovingListener(Function n){
+    this.listenersRemoved.on(n);
   }
-  
+
   void on(Function n){
     this.listeners.on(n);
+    this.listenersAdded.emit(n);
     this.push();
   }
   
   void off(Function n){
     this.listeners.off(n);  
+    this.listenersRemoved.emit(n);
   }
   
   void whenDrained(Function n){
     this.drained.on(n);  
   }
   
-  void whenClosed(Function n){
-    this.closed.on(n);  
+  void whenEnded(Function n){
+    this.ended.on(n);  
   }
   
+  void whenClosed(Function n){
+    this.closed.on(n);
+  }
+
   void whenInitd(Function n){
     this.initd.on(n);  
   }
@@ -357,39 +359,57 @@ class Streamable<T> extends Streamer<T>{
   }
  
   void closeListeners(){
-    this.closed.free();
+    this.ended.free();
     this.listeners.free();
     this.initd.free();
     this.drained.free();
+    this.listenersAdded.free();
+    this.listenersRemoved.free();
   }
-    
+   
   void reset(){
     if(!this.streamClosed) return;  
-    this.closeListeners();
     this.state.switchState("paused");
-    this.initd.unlock();
-    this.transformer.unlock();
-    this.drained.unlock();
-    this.listeners.unlock();
-    this.closed.unlock();
+    this.unlockAllDistributors();
   }
   
   void lockAllDistributors(){
+    this.initd.lock();
+    this.transformer.lock();
+    this.drained.lock();
+    this.ended.lock();
+    this.listeners.lock();
+    this.listenersAdded.lock();
+    this.listenersRemoved.lock();
+  }
+  
+  void unlockAllDistributors(){
     this.initd.unlock();
     this.transformer.unlock();
-    this.drained.lock();
-    this.closed.lock();
-    this.listeners.lock();
+    this.drained.unlock();
+    this.ended.unlock();
+    this.closed.unlock();
+    this.listeners.unlock();
+    this.listenersAdded.unlock();
+    this.listenersRemoved.unlock();
   }
-  
+
   void end(){
     if(this.streamClosed) return null;
-    this.state.switchState('closing');
     this.push();
-    this.initd.lock();
+    this.ended.emit(true);
   }
   
-  void close() => this.end();
+  void close(){
+    if(this.streamClosed) return null;
+    this.state.switchState('closing');
+    this.end();
+    this.lockAllDistributors();
+    this.closeListeners();
+    this.closed.emit(true);
+    this.closed.free();
+    this.closed.lock();
+  }
   
   void enablePushDelayed(){
     this.pushState.switchState("delayed"); 
@@ -443,11 +463,16 @@ class Streamable<T> extends Streamer<T>{
     return this.listeners.hasListeners;
   }
   
-  Subscriber subscribe(Function fn){
+  Subscriber subscribe([Function fn]){
     var sub = Subscriber.create(this);
-    sub.on(fn);
+    if(fn != null) sub.on(fn);
     return sub;
   }
+
+  void forceFlush(){
+    this.streams.clear();
+  }
+
 }
 
 class Subscriber<T> extends Listener<T>{
@@ -468,6 +493,14 @@ class Subscriber<T> extends Listener<T>{
 
   void setMax(int m){
     this.stream.setMax(m);  
+  }
+
+  void whenAddingListener(Function n){
+    this.stream.listenersAdded.on(n);
+  }
+
+  void whenRemovingListener(Function n){
+    this.stream.listenersRemoved.on(n);
   }
 
   void enableFlushing(){
@@ -514,17 +547,16 @@ class Subscriber<T> extends Listener<T>{
     this.stream.resume();
   }
   
-  void end([bool noattr]){
-   this.stream.end();
-   if(noattr != null && !noattr) this.closeAttributes();
+  void end(){
+    this.stream.end();
   }
   
-  void closeAttributes(){
-    //does nothing - removed dynamic properties of invocable for dart2js compatibility
+  void close(){
+    this.stream.close();
   }
-  
-  void close([bool n]){
-    this.end(n);
+
+  void forceFlush(){
+    this.stream.forceFlush();
   }
 }
 
@@ -623,7 +655,7 @@ class GroupedStream{
   dynamic get endGroupResumed => this.end.resumer;
   dynamic get beginGroupResumed => this.begin.resumer;
   dynamic get streamResumed => this.stream.resumer;
-
+  
   void whenDrained(Function n){
     this.stream.whenDrained(n);  
   }
@@ -687,6 +719,7 @@ class GroupedStream{
   }
   
   bool get hasConnections => this.stream.hasListeners;
+  
 }
 
 

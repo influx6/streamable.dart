@@ -43,6 +43,10 @@ main(){
     print('closed!');
   });
   
+  buffer.whenEnded((n){
+    print('ended!');
+  });
+  
   buffer.resume();
   
   //buffer.enablePushDelayed();
@@ -57,9 +61,10 @@ main(){
   
   buffer.emit(11);
   buffer.emit(12);
-  
-
 
   buffer.close();
 
+  buffer.emit(8);
+  
+  buffer.emit(9);
 }
