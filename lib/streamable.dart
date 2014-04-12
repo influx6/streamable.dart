@@ -483,10 +483,12 @@ class Subscriber<T> extends Listener<T>{
 
   Subscriber(this.source): super(){
     this.source.on(this.emit);
+    this.source.whenClosed(this.close);
     this.stream.whenClosed((n){
       this.source.off(this.emit);
       this.source = null;
     });
+
   }
 
   Mutator get transformer => this.stream.transformer;
