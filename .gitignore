@@ -1,7 +1,9 @@
 #################
 ## Eclipse
 #################
-
+*packages
+packages
+*.lock
 *.pydevproject
 .project
 .metadata

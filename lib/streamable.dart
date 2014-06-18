@@ -29,7 +29,9 @@ class Listener<T>{
   void pause(){}
   void resume(){}
   void on(Function n){}
+  void once(Function n){}
   void off(Function n){}
+  void offOnce(Function n){}
   void end(){}
 }
 
@@ -62,6 +64,10 @@ class Distributor<T>{
   void whenDone(Function n){
     if(!this.doneIterator.contains(n)) this.done.add(n);
   }
+
+  void offWhenDone(Function n){
+    return this.doneIterator.remove(n);
+  }
   
   dynamic off(Function m){
     var item = this.listenerIterator.remove(m);
@@ -69,6 +75,12 @@ class Distributor<T>{
     return item.data;
   }
   
+  dynamic offOnce(Function m){
+    var item = this.onceIterator.remove(m);
+    if(item == null) return null;
+    return item.data;
+  }
+
   void free(){
     this.listeners.clear();
     this.done.clear();
@@ -138,7 +150,8 @@ class Streamable<T> extends Streamer<T>{
   final Distributor listenersRemoved = Distributor.create('streamable-listenersRemoved');
   StateManager state,pushState,flush;
   dynamic iterator;
-  Function _ender;
+  bool _willEndOnDrain = false;
+  Function _ender, _endStreamDispatcher;
   
   static create([n]) => new Streamable(n);
 
@@ -148,6 +161,10 @@ class Streamable<T> extends Streamer<T>{
     this.pushState = StateManager.create(this);
     this.flush = StateManager.create(this);
     this.iterator = this.streams.iterator;
+
+    this._endStreamDispatcher = (n){
+      this.end();
+    };
   
     this.flush.add('yes', {
       'allowed': (t,c){ return true; }
@@ -223,9 +240,20 @@ class Streamable<T> extends Streamer<T>{
       this.drained.lock();
       this.listenersAdded.lock();
       this.listenersRemoved.lock();
-//      this.ended.lock();
     };
-    
+
+  }
+
+  bool get endsStreamOnDrain => this.willEndOnDrain;
+
+  void enableEndOnDrain(){
+    this.drained.on(this._endStreamDispatcher);
+    this._willEndOnDrain = true;
+  }
+
+  void disableEndOnDrain(){
+    this.drained.off(this._endStreamDispatcher);
+    this._willEndOnDrain = false;
   }
 
   Mutator cloneTransformer(){
@@ -277,6 +305,17 @@ class Streamable<T> extends Streamer<T>{
     this.listenersRemoved.emit(n);
   }
   
+  void onOnce(Function n){
+    this.listeners.once(n);
+    this.listenersAdded.emit(n);
+    this.push();
+  }
+  
+  void offOnce(Function n){
+    this.listeners.offOnce(n);  
+    this.listenersRemoved.emit(n);
+  }
+
   void whenDrained(Function n){
     this.drained.on(n);  
   }
@@ -478,17 +517,32 @@ class Streamable<T> extends Streamer<T>{
 class Subscriber<T> extends Listener<T>{
   Streamable stream = Streamable.create();
   Streamable source;
+  Function _endHandler;
   
   static create(c) => new Subscriber(c);
 
   Subscriber(this.source): super(){
+    this._endHandler = (n){
+      this.stream.end();
+    };
+
     this.source.on(this.emit);
-    this.source.whenClosed(this.close);
+    
+    this.source.whenClosed((n) => this.close());
     this.stream.whenClosed((n){
       this.source.off(this.emit);
       this.source = null;
     });
 
+    this.bindEndEvent();
+  }
+
+  void bindEndEvent(){
+    this.source.ended.on(this._endHandler);
+  }
+
+  void unbindEndEvent(){
+    this.source.ended.off(this._endHandler);
   }
 
   Mutator get transformer => this.stream.transformer;
@@ -516,6 +570,10 @@ class Subscriber<T> extends Listener<T>{
   void whenDrained(Function n){
     this.stream.whenDrained(n);
   }
+
+  void whenEnded(Function n){
+    this.stream.whenEnded(n);
+  }
   
   void whenClosed(Function n){
     this.stream.whenClosed(n);
@@ -525,12 +583,20 @@ class Subscriber<T> extends Listener<T>{
     this.stream.whenInitd(n);
   }
 
+  void offOnce(Function n){
+    this.stream.offOnce(n);
+  }
+
   void off(Function n){
     this.stream.off(n);
   }
   
   void on(Function n){
     this.stream.on(n);
+  }
+
+  void once(Function n){
+    this.stream.onOnce(n);
   }
 
   void emit(T a){
@@ -719,6 +785,9 @@ class GroupedStream{
   void off(Function n){
     this.stream.off(n);
   }
+
+  void end() => this.stream.end();
+
   
   bool get hasConnections => this.stream.hasListeners;
   

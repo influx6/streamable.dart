@@ -34,7 +34,8 @@ main(){
   
   var sub = Subscriber.create(buffer);
   sub.on((g){ print('subscribers item: $g'); });
-  
+  sub.whenEnded((n) => print('sub ended by super'));
+
   buffer.pause();
 
   buffer.emit(4);

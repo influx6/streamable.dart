@@ -10,6 +10,8 @@ main(){
   buffer.whenClosed((n){
     print('closed!');
   });
+
+  buffer.disableEndOnDrain();
   
   var mixedOrder = (MixedStreams.combineOrder([buffer,stream])(null,null,(values,mixed,streams,injector){
       mixed.emitMass(values);
@@ -19,6 +21,10 @@ main(){
     if(tg.length >= 2) return true;
     return false;
   }));
+
+  buffer.ended.on((n){
+    print('buffer just ended with $n');
+  });
   
   buffer.emit(1);
   stream.emit(4);
@@ -27,6 +33,7 @@ main(){
   
   mixed.pause();
 
+
   mixed.on((t){
     print("mixed stream: $t");
   });
@@ -34,9 +41,17 @@ main(){
   mixedOrder.on((t){
     print("mixedOrder $t");  
   });
+
+  buffer.emit(4);
   
+  buffer.enableEndOnDrain();
+
+  buffer.emit(5);
+
   mixed.resume();
 
-  buffer.close();
+
+  /*buffer.close();*/
+
   
 }
