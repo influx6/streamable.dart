@@ -794,6 +794,32 @@ class GroupedStream{
 }
 
 
+class StreamDispatcher{
+  MapDecorators dispatchs;
+
+  static create() => new StreamDispatcher();
+
+  StreamDispatcher(){
+    this.dispatchs = MapDecorator.create();
+  }
+
+  Streamable register(String tag) => this.dispatchs.add(tag,Streamable.create()) && this.get(tag);
+  void unregister(String tag) => this.dispatchs.has(tag) && this.dispatchs.get(tag).close();
+  Streamable get(String tag) => this.dispatchs.get(tag);
+
+  void _unless(t,n) => this.dispatchs.has(tag) && n(this.get(tag));
+
+  void bind(String t,Function n) => this._unless(t,(f) => f.on(n));
+  void unbind(String t,Function n) => this._unless(t,(f) => f.off(n));
+  void bindOnce(String t,Function n) => this._unless(t,(f) => f.onOnce(n));
+  void unbindOnce(String t,Function n) => this._unless(t,(f) => f.offOnce(n));
+
+  void destroy(){
+    this.dispatchs.onAll((v,k) => k.close());
+    this.dispatchs.clear();
+  }
+}
+
 class MixedStreams{
   
   static Function mixed(List<Streamable> sets){
