@@ -822,6 +822,18 @@ class StreamDispatcher{
 
 class MixedStreams{
   
+  static Streamable throttle(Streamable st,int count){
+    var ns = Streamable.create(), cur = 0;
+    st.on((f){
+      if(cur <= 0){
+        ns.emit(f);
+        cur = count;
+      }
+      cur -= 1;
+    });
+    return ns;
+  }
+
   static Function mixed(List<Streamable> sets){
     return (Injector injectible){
       return (fn,[fns]){
