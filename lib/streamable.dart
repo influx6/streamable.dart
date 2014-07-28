@@ -244,6 +244,7 @@ class Streamable<T> extends Streamer<T>{
 
   }
 
+  num get streamSize => this.streams.size;
   bool get endsStreamOnDrain => this.willEndOnDrain;
 
   void enableEndOnDrain(){
