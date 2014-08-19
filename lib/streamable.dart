@@ -787,7 +787,7 @@ class GroupedStream{
     this.stream.off(n);
   }
 
-  void end() => this.stream.end();
+  void endStream() => this.stream.end();
 
   
   bool get hasConnections => this.stream.hasListeners;
@@ -796,7 +796,7 @@ class GroupedStream{
 
 
 class StreamDispatcher{
-  MapDecorators dispatchs;
+  MapDecorator dispatchs;
 
   static create() => new StreamDispatcher();
 
@@ -808,7 +808,10 @@ class StreamDispatcher{
   void unregister(String tag) => this.dispatchs.has(tag) && this.dispatchs.get(tag).close();
   Streamable get(String tag) => this.dispatchs.get(tag);
 
-  void _unless(t,n) => this.dispatchs.has(tag) && n(this.get(tag));
+  void _unless(tag,n){
+    if(!this.dispatchs.has(tag)) return null;
+    return n(this.get(tag)); 
+  }
 
   void bind(String t,Function n) => this._unless(t,(f) => f.on(n));
   void unbind(String t,Function n) => this._unless(t,(f) => f.off(n));
