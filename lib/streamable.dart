@@ -1,5 +1,6 @@
 library streamable;
 
+import 'dart:async';
 import 'package:ds/ds.dart' as ds;
 import 'package:hub/hub.dart';
 
@@ -133,7 +134,6 @@ class Distributor<T>{
   
   bool get locked => !!this._locked;
 }
-
 
 class Streamable<T> extends Streamer<T>{
   
@@ -794,13 +794,238 @@ class GroupedStream{
   
 }
 
+class DispatchWatcher{
+  final Switch _active = Switch.create();
+  final Streamable<Map> streams = new Streamable<Map>();
+  final dynamic message;
+  Dispatch dispatch;
+  
+  static create(f,m) => new DispatchWatcher(f,m);
+  DispatchWatcher(dispatch,this.message){
+    if(this.message is! RegExp && this.message is! String) 
+      throw "message must either be a RegExp/a String for dispatchwatchers";
+    this._active.switchOn();
+    this.attach(dispatch);
+  }
+  
+  bool get isActive => this._active.on();
 
-class StreamDispatcher{
+  void _delegate(f){
+      if(!f.containsKey('message')) 
+        return this.streams.emit(f); 
+      Funcs.when(Valids.isRegExp(this.message),(){
+        if(!this.message.hasMatch(f['message'])) return null;
+        this.streams.emit(f);
+      });
+      Funcs.when(Valids.isString(this.message),(){
+        if(!Valids.match(this.message,f['message'])) return null;
+        this.streams.emit(f);
+      });
+  }
+
+  void send(String mesg,Map m){
+    if(!this.isActive) return null;
+    this.dispatch.dispatch(mesg,m);
+  }
+
+  void listen(Function n) => this.streams.on(n);
+  void listenOnce(Function n) => this.streams.onOnce(n);
+  void unlisten(Function n) => this.streams.off(n);
+  void unlistenOnce(Function n) => this.streams.offOnce(n);
+
+  void attach(Dispatch n){
+    this.detach();
+    this.dispatch = n;
+    this.dispatch.listen(this._delegate);
+  }
+
+  void detach(){
+    if(!this.isActive || Valids.notExist(this.dispatch)) return null;
+    this._active.switchOff();
+    this.dispatch.unlisten(this._delegate);
+    this.dispatch = null;
+  }
+
+  void destroy(){
+    if(!this.isActive) return null;
+    this.detach();
+    this.streams.close();
+  }
+
+}
+
+class Dispatch{
+  final Switch active = Switch.create();
+  final Streamable dispatchs = new Streamable<Map>();
+
+  static Dispatch forAny(List<DispatchWatcher> ds){
+    var dw = Dispatch.create();
+    ds.forEach((f) => f.listen(dw.dispatch));
+    return dw;
+  }
+
+  static Dispatch forAnyOnce(List<DispatchWatcher> ds){
+    var dw = Dispatch.create();
+    ds.forEach((f) => f.listenOnce(dw.dispatch));
+    return dw;
+  }
+
+  static Dispatch waitForAlways(List<DispatchWatcher> ds){
+    var dw = Dispatch.create();
+    var vals = new List<Map>();
+    var init = (){
+      var m = new List.from(vals);
+      vals.clear();
+      m.forEach(dw.dispatch);
+    };
+
+    ds.forEach((f){
+      f.listen((g){
+        vals.add(g);
+        if(vals.length >= ds.length) return init();
+      });
+    });
+
+    return dw;
+  }
+
+  static Dispatch waitFor(List<DispatchWatcher> ds){
+    var dw = Dispatch.create();
+    var comp = new Completer();
+    var fds = new List<Future>();
+    Enums.eachAsync(ds,(e,i,o,fn){
+      var c = new Completer();
+      e.listenOnce(c.complete);
+      fds.add(c.future);
+      return fn(null);
+    },(_,err){
+      Future.wait(fds)
+      .then(comp.complete)
+      .catchError(comp.completeError);
+    });
+
+    comp.future.then((data){
+      data.forEach(dw.dispatch);
+    });
+
+    return dw;
+  }
+
+  static Dispatch create() => new Dispatch();
+
+  Dispatch(){
+    this.active.switchOn();
+  }
+
+  bool get isActive => this.active.on();
+
+  void dispatch(Map m){
+    if(!this.isActive) return null;
+    if(m.containsKey('message') && !Valids.isString(m['message'])) return null;
+    this.dispatchs.emit(m);
+  }
+
+  DispatchWatcher watch(dynamic message){
+    if(!this.isActive) return null;
+    return DispatchWatcher.create(this,message);
+  }
+
+  void listen(Function n) => this.dispatchs.on(n);
+  void listenOnce(Function n) => this.dispatchs.onOnce(n);
+  void unlisten(Function n) => this.dispatchs.off(n);
+  void unlistenOnce(Function n) => this.dispatchs.offOnce(n);
+  void destroy(){
+    if(!this.isActive) return null;
+    this.active.switchOff();
+    this.dispatchs.close();
+  }
+}
+
+abstract class SingleStore{
+  Dispatch dispatch;
+
+  SingleStore([Dispatch d]){
+    this.dispatch = Dispatch.create();
+    this.attach(d);
+  }
+
+  bool isActive => this.dispatch != null;
+
+  //will ineffect listen to the dispatcher without killing its current dispatcher
+  void shadowOnce(Dispatch n){
+    this.dispatch.listenOnce(this.delegate);
+  }
+
+  //replaces the current dispatch and listens once and then detaches
+  void attachOnce(Dispatch n){
+    this.detach();
+    this.dispatch = n;
+    this.dispatch.listenOnce((f){
+      this.delegate(f);
+      this.detach();
+    });
+  }
+
+  void attach(Dispatch n){
+    this.detach();
+    this.dispatch = n;
+    this.dispatch.listen(this.delegate);
+  }
+
+  void detach(){
+    if(!this.isActive) return null;
+    this.dispatch.unlisten(this.delegate);
+    this.dispatch = null;
+  }
+
+  void delegate(m);
+  void dispatch(String m,Map m);
+
+  DispatchWatcher watch(dynamic m){
+    if(!this.isActive) return null;
+    return this.dispatch.watch(m);
+  }
+}
+
+abstract class MultipleStore{
+  Set<Dispatch> dispatchers;
+
+  MultipleStore([Dispatch d]){
+    this.dispatchers = new Set<Dispatch>();
+    this.attach(d);
+  }
+
+  void attachOnce(Dispatch n){
+    n.listenOnce(this.delegate);
+  }
+
+  void attach(Dispatch n){
+    this.dispatchers.add(n);
+    n.delegate(this.delegate);
+  }
+
+  void detach(Dispatch n){
+    this.dispatchers.remove(n);
+    n.unlisten(this.delegate);
+  }
+
+  void delegate(m);
+  void dispatch(String m,Map m);
+  DispatchWatcher watch(dynamic m){
+    var dw = [];
+    this.dispatchers.forEach((f){
+      dw.add(f.watch(m));
+    });
+    return Dispatch.waitForAlways(dw).watch(m);
+  }
+}
+
+class StreamManager{
   MapDecorator dispatchs;
 
-  static create() => new StreamDispatcher();
+  static create() => new StreamManager();
 
-  StreamDispatcher(){
+  StreamManager(){
     this.dispatchs = MapDecorator.create();
   }
 
