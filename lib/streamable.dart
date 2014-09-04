@@ -960,7 +960,7 @@ abstract class SingleStore extends Store{
     this.attach(d);
   }
 
-  bool isActive => this.dispatch != null;
+  bool get isActive => this.dispatch != null;
 
   //will ineffect listen to the dispatcher without killing its current dispatcher
   void shadowOnce(Dispatch n){
@@ -1008,6 +1008,8 @@ abstract class MultipleStore extends Store{
     this.attach(d);
   }
 
+  bool get isActive => !this.dispatch.isEmpty;
+
   void attachOnce(Dispatch n){
     n.listenOnce(this.delegate);
   }
@@ -1025,6 +1027,7 @@ abstract class MultipleStore extends Store{
   void delegate(m);
 
   DispatchWatcher watch(dynamic m){
+    if(!this.isActive) return null;
     var dw = [];
     this.dispatchers.forEach((f){
       dw.add(f.watch(m));
