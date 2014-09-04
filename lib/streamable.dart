@@ -797,11 +797,16 @@ class DispatchWatcher{
   final Streamable<Map> streams = new Streamable<Map>();
   final dynamic message;
   Dispatch dispatch;
+  Middleware watchMan;
   
   static create(f,m) => new DispatchWatcher(f,m);
   DispatchWatcher(dispatch,this.message){
     if(this.message is! RegExp && this.message is! String) 
       throw "message must either be a RegExp/a String for dispatchwatchers";
+    this.watchMan = Middleware.create((f){
+      this.streams.emit(f);
+    });
+    this.watchMan.ware((d,next,end) => next());
     this._active.switchOn();
     this.attach(dispatch);
   }
@@ -813,11 +818,11 @@ class DispatchWatcher{
         return this.streams.emit(f); 
       Funcs.when(Valids.isRegExp(this.message),(){
         if(!this.message.hasMatch(f['message'])) return null;
-        this.streams.emit(f);
+        this.watchMan.emit(f);
       });
       Funcs.when(Valids.isString(this.message),(){
         if(!Valids.match(this.message,f['message'])) return null;
-        this.streams.emit(f);
+        this.watchMan.emit(f);
       });
   }
 
