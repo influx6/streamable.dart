@@ -946,7 +946,7 @@ abstract class Store{
   void detach();
   void delegate(m);
   void watch(m);
-  void dispatch(Map m) => this.dispatchFilter.emit(m);
+  void dispatchd(Map m) => this.dispatchFilter.emit(m);
 }
 
 abstract class SingleStore extends Store{
