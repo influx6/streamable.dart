@@ -957,6 +957,7 @@ abstract class SingleStore extends Store{
     this.dispatchFilter = Middleware.create((m){
       this.dispatch.dispatch(m);
     });
+    this.dispatchFilter.ware((d,next,end) => next());
     this.attach(d);
   }
 
@@ -1005,6 +1006,7 @@ abstract class MultipleStore extends Store{
     this.dispatchFilter = Middleware.create((m){
       this.dispatchers.forEach((f) => f.dispatch(m));
     });
+    this.dispatchFilter.ware((d,next,end) => next());
     this.attach(d);
   }
 
