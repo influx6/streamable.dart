@@ -36,9 +36,7 @@ class Listener<T>{
   void end(){}
 }
 
-class Distributor<T>{
-  final listeners = new ds.dsList<Function>();
-  final done = new ds.dsList<Function>();
+class Distributor<T>{ final listeners = new ds.dsList<Function>(); final done = new ds.dsList<Function>();
   final onced = new ds.dsList<Function>();
   String id;
   dynamic listenerIterator,doneIterator,onceIterator;
@@ -941,11 +939,24 @@ class Dispatch{
   }
 }
 
-abstract class SingleStore{
+abstract class Store{
+  Middleware dispatchFilter;
+  void attach(Dispatch m);
+  void attachOnce(Dispatch m);
+  void detach();
+  void delegate(m);
+  void watch(m);
+  void dispatch(Map m) => this.dispatchFilter.emit(m);
+}
+
+abstract class SingleStore extends Store{
   Dispatch dispatch;
 
   SingleStore([Dispatch d]){
     this.dispatch = Dispatch.create();
+    this.dispatchFilter = Middleware.create((m){
+      this.dispatch.dispatch(m);
+    });
     this.attach(d);
   }
 
@@ -979,7 +990,6 @@ abstract class SingleStore{
   }
 
   void delegate(m);
-  void dispatch(String m,Map m);
 
   DispatchWatcher watch(dynamic m){
     if(!this.isActive) return null;
@@ -987,11 +997,14 @@ abstract class SingleStore{
   }
 }
 
-abstract class MultipleStore{
+abstract class MultipleStore extends Store{
   Set<Dispatch> dispatchers;
 
   MultipleStore([Dispatch d]){
     this.dispatchers = new Set<Dispatch>();
+    this.dispatchFilter = Middleware.create((m){
+      this.dispatchers.forEach((f) => f.dispatch(m));
+    });
     this.attach(d);
   }
 
@@ -1010,7 +1023,7 @@ abstract class MultipleStore{
   }
 
   void delegate(m);
-  void dispatch(String m,Map m);
+
   DispatchWatcher watch(dynamic m){
     var dw = [];
     this.dispatchers.forEach((f){
