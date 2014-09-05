@@ -826,9 +826,9 @@ class DispatchWatcher{
       });
   }
 
-  void send(String mesg,Map m){
+  void send(Map m){
     if(!this.isActive) return null;
-    this.dispatch.dispatch(mesg,m);
+    this.dispatch.dispatch(m);
   }
 
   void listen(Function n) => this.streams.on(n);
