@@ -119,7 +119,7 @@ class Distributor<T>{ final listeners = new ds.dsList<Function>(); final done = 
   }
 
   bool get hasListeners{
-    return !(this.listeners.isEmpty);
+    return !(this.listeners.isEmpty && this.onced.isEmpty);
   }
   
   void lock(){
