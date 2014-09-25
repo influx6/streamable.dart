@@ -1,5 +1,5 @@
 name: streamable
-version: 0.4.0
+version: 0.4.1
 author: Alexander Adeniyin Ewetumo <trinoxf@gmail.com>
 description: provides a mixable streaming api based on nodelists 
 homepage: http://influx.github.com/streamable.dart

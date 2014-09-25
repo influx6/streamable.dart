@@ -1,6 +1,5 @@
 library streamable;
 
-import 'dart:async';
 import 'package:ds/ds.dart' as ds;
 import 'package:hub/hub.dart';
 
@@ -11,7 +10,6 @@ abstract class Streamer<T>{
   void pause();
   void end();
   void close();
-
 }
 
 abstract class Broadcast<T>{
@@ -36,7 +34,9 @@ class Listener<T>{
   void end(){}
 }
 
-class Distributor<T>{ final listeners = new ds.dsList<Function>(); final done = new ds.dsList<Function>();
+class Distributor<T>{ 
+  final listeners = new ds.dsList<Function>(); 
+  final done = new ds.dsList<Function>();
   final onced = new ds.dsList<Function>();
   String id;
   dynamic listenerIterator,doneIterator,onceIterator;
